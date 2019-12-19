@@ -1,12 +1,12 @@
-const express = require('express');
+import express from "express";
 import accepts from 'accepts';
+import querystring from "querystring";
 
-const accept = accepts.accept;
-const router = new express.Router();
+const router = express.Router();
 
 export default function(config) {
 
-const { logger, client } = config;
+const { logger, client, swagger: { options: swaggerOptions } } = config;
 
 {{#each operation}}
   {{#each this.path}}
@@ -37,15 +37,21 @@ router.{{@key}}('{{#fixPathParameters ../../.}}{{../../subresource}}{{/fixPathPa
   try 
   {  
       {{#if ../requestBody}}
-      const result = await client.apis.{{../../../operation_name}}.{{../operationId}}(params,{...config.swagger.options(req),requestBody:req.body{{#compare (lookup ../parameters 'length') 0 operator = '>' }}{{/compare}} }); 
+      const result = await client.apis.{{../../../operation_name}}.{{../operationId}}(params,{...swaggerOptions(req,res),requestBody:req.body{{#compare (lookup ../parameters 'length') 0 operator = '>' }}{{/compare}} }); 
       {{else}}
-      const result = await client.apis.{{../../../operation_name}}.{{../operationId}}(params,config.swagger.options(req)); 
+      const result = await client.apis.{{../../../operation_name}}.{{../operationId}}(params,swaggerOptions(req,res)); 
       {{/if}}
-
       {{#if ../extensions/x-session}}
+
       if( req.session ) { 
       {{#each ../extensions/x-session}} 
-          req.session.{{this.key}} = result.{{this.value}};
+            {{#ifeq value.method 'merge'}}
+             req.session.{{../key}} = {...req.session.{{../key}},...result.{{../value.field}} };
+             {{/ifeq}}
+           {{#ifeq value.method 'set'}}
+           req.session.{{../key}} = result.{{../value.field}};
+           {{/ifeq}}
+     
       {{/each}}
       }
       {{/if}}
